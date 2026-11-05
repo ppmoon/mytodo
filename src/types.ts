@@ -118,11 +118,11 @@ export type FilterQuery = {
   due?: "any" | "overdue" | "today" | "none" | "upcoming";
 };
 
-export const DEFAULT_TABS = ["today", "calendar", "habits", "focus", "more"];
+export const DEFAULT_TABS = ["today", "calendar", "matrix", "habits", "more"];
 
 export const defaultSettings = (): Settings => ({
   theme: "light",
-  accent: "#0f6e6e",
+  accent: "#1f6b4a",
   timezone: "Asia/Shanghai",
   tabs: DEFAULT_TABS,
   swipeRight: "complete",

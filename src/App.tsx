@@ -1,34 +1,31 @@
-import { useEffect, useState } from "react";
-import { NavLink, Route, Routes, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { NavLink, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { todayYmd, ymdString } from "./lib/dates";
 import { parseQuickAdd } from "./lib/nlp";
 import { store } from "./store";
-import { useSyncExternalStore } from "react";
 import { TaskList } from "./ui/TaskList";
 import { TaskDialog } from "./ui/TaskDialog";
 import { CalendarView, CountdownView, CoursesView, FocusView, HabitsView, MatrixView, SearchView, SettingsView, SummaryView, TimelineView, TimersView, WatchView, WidgetsView } from "./ui/views";
-import type { ListMode } from "./select";
+import { tasksFor, type ListMode } from "./select";
 import { uid } from "./lib/id";
 
-const LINKS: [string, string][] = [
-  ["/today", "今天"],
-  ["/upcoming", "最近 7 天"],
-  ["/inbox", "收集箱"],
-  ["/calendar", "日历"],
-  ["/timeline", "时间线"],
-  ["/matrix", "四象限"],
+const GROUPS: { label: string; links: [string, string][] }[] = [
+  { label: "今天", links: [["/today", "今天"], ["/upcoming", "最近 7 天"], ["/inbox", "收集箱"]] },
+  { label: "计划", links: [["/calendar", "日历"], ["/timeline", "时间线"], ["/matrix", "四象限"]] },
+  { label: "生活", links: [["/habits", "习惯"], ["/focus", "专注"], ["/courses", "课程表"], ["/countdowns", "倒数日"]] },
+];
+
+const MORE: [string, string][] = [
   ["/summary", "摘要"],
-  ["/habits", "习惯"],
-  ["/focus", "专注"],
-  ["/courses", "课程表"],
-  ["/countdowns", "倒数日"],
   ["/timers", "计时器"],
   ["/widgets", "小部件"],
   ["/watch", "手表"],
   ["/search", "搜索"],
   ["/completed", "已完成"],
   ["/trash", "垃圾桶"],
-  ["/settings", "设置"],
 ];
+
+const LINKS: [string, string][] = [...GROUPS.flatMap((group) => group.links), ...MORE, ["/settings", "设置"]];
 
 const TAB_LABEL: Record<string, [string, string]> = {
   today: ["/today", "今天"],
@@ -69,42 +66,62 @@ export function App() {
     setParams({}, { replace: true });
   }, [params, setParams]);
 
-  const path = window.location.pathname;
-  const title = LINKS.find((link) => link[0] === path)?.[1] ?? "任务";
+  const { pathname } = useLocation();
+  const titled = LINKS.find((link) => link[0] === pathname)?.[1];
+  const project = pathname.startsWith("/project/") ? state.projects.find((item) => item.id === pathname.split("/")[2]) : undefined;
+  const tag = pathname.startsWith("/tag/") ? state.tags.find((item) => item.id === pathname.split("/")[2]) : undefined;
+  const filter = pathname.startsWith("/filter/") ? state.filters.find((item) => item.id === pathname.split("/")[2]) : undefined;
+  const title = titled ?? project?.name ?? (tag ? `#${tag.name}` : filter?.name) ?? "任务";
+  const showToday = pathname === "/" || pathname === "/today";
+  const openTask = (task: { id: string; projectId: string | null }) => setEditor({ id: task.id, projectId: task.projectId });
   return (
     <div className="app">
+      {menu && <button className="scrim" aria-label="关闭菜单" onClick={() => setMenu(false)} />}
       <aside className={menu ? "side open" : "side"}>
-        <h1 className="brand">my<span>todo</span></h1>
-        <p className="lede">只存在这台浏览器里的待办。</p>
-        {LINKS.map(([href, label]) => <NavLink key={href} to={href} className="nav-link" onClick={() => setMenu(false)}>{label}</NavLink>)}
-        <div className="group">清单</div>
-        {state.projects.filter((project) => !project.archived).map((project) => (
-          <NavLink key={project.id} to={`/project/${project.id}`} className="nav-link"><span><i className="dot" style={{ background: project.color }} /> {project.name}</span></NavLink>
+        <div className="side-scroll">
+        <h1 className="brand">mytodo</h1>
+        <p className="lede">只存在这台浏览器里</p>
+        {GROUPS.map((group) => (
+          <div key={group.label}>
+            <div className="group">{group.label}</div>
+            {group.links.map(([href, label]) => <NavLink key={href} to={href} className="nav-link" onClick={() => setMenu(false)}>{label}</NavLink>)}
+          </div>
         ))}
-        <Creator label="新清单" onCreate={(name) => store.saveProject({ id: uid(), folderId: null, name, color: "#0f6e6e", pinned: false, archived: false, sortOrder: state.projects.length, createdAt: new Date().toISOString() })} />
+        <div className="group">清单</div>
+        {state.projects.filter((item) => !item.archived).map((item) => (
+          <NavLink key={item.id} to={`/project/${item.id}`} className="nav-link" onClick={() => setMenu(false)}><span><i className="dot" style={{ background: item.color }} /> {item.name}</span></NavLink>
+        ))}
+        <Creator label="新清单" onCreate={(name) => store.saveProject({ id: uid(), folderId: null, name, color: "#1f6b4a", pinned: false, archived: false, sortOrder: state.projects.length, createdAt: new Date().toISOString() })} />
         <Creator label="新文件夹" onCreate={(name) => store.saveFolder(uid(), name)} />
         <div className="group">标签</div>
-        {state.tags.map((tag) => <NavLink key={tag.id} to={`/tag/${tag.id}`} className="nav-link">#{tag.name}</NavLink>)}
+        {state.tags.map((item) => <NavLink key={item.id} to={`/tag/${item.id}`} className="nav-link" onClick={() => setMenu(false)}>#{item.name}</NavLink>)}
         <div className="group">筛选</div>
-        {state.filters.map((filter) => <NavLink key={filter.id} to={`/filter/${filter.id}`} className="nav-link">{filter.name}</NavLink>)}
+        {state.filters.map((item) => <NavLink key={item.id} to={`/filter/${item.id}`} className="nav-link" onClick={() => setMenu(false)}>{item.name}</NavLink>)}
         <Creator label="新筛选（名称即关键词）" onCreate={(name) => store.saveFilter(uid(), name, { text: name })} />
-        <div className="group">模板</div>
+        {state.templates.length > 0 && <div className="group">模板</div>}
         {state.templates.map((template) => <button key={template.id} className="linkish" onClick={() => store.createFromTemplate(template.id)}>{template.name}</button>)}
+        <div className="group">其他</div>
+        {MORE.map(([href, label]) => <NavLink key={href} to={href} className="nav-link" onClick={() => setMenu(false)}>{label}</NavLink>)}
+        </div>
+        <NavLink to="/settings" className="nav-link nav-foot" onClick={() => setMenu(false)}>设置</NavLink>
       </aside>
       <main className="main">
+        <div className={showToday ? "today-layout" : undefined}>
+        <div>
         <header className="top">
           <div>
+            <DateKicker timezone={state.settings.timezone} />
             <h1>{title}</h1>
           </div>
           <div className="row">
-            <button className="ghost" onClick={() => setMenu(true)}>菜单</button>
-            <button className="primary" onClick={() => setEditor({ id: null, projectId: path.startsWith("/project/") ? path.split("/")[2] : "inbox" })}>新任务</button>
+            <button className="ghost menu-btn" onClick={() => setMenu(true)}>菜单</button>
+            <button className="primary" onClick={() => setEditor({ id: null, projectId: pathname.startsWith("/project/") ? pathname.split("/")[2] : "inbox" })}>新任务</button>
           </div>
         </header>
         <QuickAdd timezone={state.settings.timezone} />
         <Routes>
-          <Route path="/" element={<TaskList state={state} mode={{ kind: "today" }} onOpen={(task) => setEditor({ id: task.id, projectId: task.projectId })} />} />
-          <Route path="/today" element={<TaskList state={state} mode={{ kind: "today" }} onOpen={(task) => setEditor({ id: task.id, projectId: task.projectId })} />} />
+          <Route path="/" element={<Navigate to="/today" replace />} />
+          <Route path="/today" element={<TaskList state={state} mode={{ kind: "today" }} onOpen={openTask} />} />
           <Route path="/upcoming" element={<TaskList state={state} mode={{ kind: "upcoming" }} onOpen={(task) => setEditor({ id: task.id, projectId: task.projectId })} />} />
           <Route path="/inbox" element={<TaskList state={state} mode={{ kind: "inbox" }} onOpen={(task) => setEditor({ id: task.id, projectId: task.projectId })} />} />
           <Route path="/completed" element={<TaskList state={state} mode={{ kind: "completed" }} onOpen={(task) => setEditor({ id: task.id, projectId: task.projectId })} />} />
@@ -126,6 +143,9 @@ export function App() {
           <Route path="/search" element={<SearchView state={state} />} />
           <Route path="/settings" element={<SettingsView state={state} />} />
         </Routes>
+        </div>
+        {showToday && <TodayRail state={state} />}
+        </div>
       </main>
       <nav className="tabbar">
         {state.settings.tabs.map((tab) => {
@@ -142,8 +162,30 @@ export function App() {
           <button className="ghost" onClick={() => store.dismissNotice()}>知道了</button>
         </div>
       )}
-      {state.undoLabel && <div className="toast card" style={{ bottom: state.notice ? 84 : 16 }}><span>{state.undoLabel}</span><button className="primary" onClick={() => store.undo()}>撤销</button></div>}
+      {state.undoLabel && <div className={state.notice ? "toast card stacked" : "toast card"}><span>{state.undoLabel}</span><button className="primary" onClick={() => store.undo()}>撤销</button></div>}
     </div>
+  );
+}
+
+function DateKicker({ timezone }: { timezone: string }) {
+  const ymd = todayYmd(new Date(), timezone);
+  const week = "日一二三四五六"[new Date(Date.UTC(ymd.y, ymd.m - 1, ymd.d)).getUTCDay()];
+  return <p className="kicker">{ymd.m}月{ymd.d}日 周{week}</p>;
+}
+
+function TodayRail({ state }: { state: ReturnType<typeof useTodo> }) {
+  const today = ymdString(todayYmd(new Date(), state.settings.timezone));
+  const openToday = tasksFor(state, { kind: "today" }).length;
+  const inbox = tasksFor(state, { kind: "inbox" }).length;
+  const habitsLeft = state.habits.filter((habit) => !habit.archived && !state.habitLogs.some((log) => log.habitId === habit.id && log.day === today && log.status === "check")).length;
+  const focusMinutes = Math.round(state.sessions.filter((session) => session.endedAt && session.startedAt.slice(0, 10) === today).reduce((sum, session) => sum + session.plannedSeconds, 0) / 60);
+  return (
+    <aside className="rail">
+      <strong>今天还剩 {openToday} 件</strong>
+      <p>收集箱 {inbox}</p>
+      <p>习惯 {habitsLeft}</p>
+      <p>专注 {focusMinutes > 0 ? focusMinutes : state.settings.pomodoroWork} 分钟</p>
+    </aside>
   );
 }
 
@@ -151,7 +193,7 @@ function QuickAdd({ timezone }: { timezone: string }) {
   const [text, setText] = useState("");
   const parsed = text.trim() ? parseQuickAdd(text, new Date(), timezone) : null;
   return (
-    <form className="quick card" onSubmit={(event) => { event.preventDefault(); store.quickAdd(text); setText(""); }}>
+    <form className="quick" onSubmit={(event) => { event.preventDefault(); store.quickAdd(text); setText(""); }}>
       <input value={text} onChange={(event) => setText(event.target.value)} placeholder="明天上午9点 买牛奶 #生活 !高" aria-label="快速添加" />
       <button type="button" className="ghost" onClick={() => {
         const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;

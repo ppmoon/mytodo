@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { addDays, dueYmd, formatClock, todayYmd, ymdString, type Ymd } from "../lib/dates";
+import { addDays, dueYmd, formatClock, todayYmd, ymdInZone, ymdString, type Ymd } from "../lib/dates";
 import { holidayOn } from "../lib/holidays";
 import { lunarLabel } from "../lib/lunar";
 import { store, type AppState } from "../store";
@@ -175,27 +175,42 @@ export function FocusView({ state }: { state: AppState }) {
   }, []);
   const elapsed = running ? Math.floor((now - new Date(running.startedAt).getTime()) / 1000) : 0;
   const left = running && running.mode !== "stopwatch" ? Math.max(0, running.plannedSeconds - elapsed) : elapsed;
-  const label = running?.mode === "stopwatch" ? "正计时" : running?.mode === "pomodoro-break" ? "休息" : "番茄钟";
-  const clock = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
-  const days = Array.from({ length: 7 }, (_, index) => addDays(todayYmd(new Date(), state.settings.timezone), index - 6));
+  const clock = running
+    ? `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`
+    : `${String(state.settings.pomodoroWork).padStart(2, "0")}:00`;
+  const caption = running?.mode === "stopwatch" ? "正计时" : running?.mode === "pomodoro-break" ? "休息" : running ? "番茄钟" : "准备开始";
+  const today = ymdString(todayYmd(new Date(), state.settings.timezone));
+  const weekStart = ymdString(addDays(todayYmd(new Date(), state.settings.timezone), -6));
+  const onDay = (iso: string) => ymdString(ymdInZone(new Date(iso), state.settings.timezone));
+  const todaySessions = state.sessions.filter((session) => session.mode === "pomodoro-work" && onDay(session.startedAt) === today);
+  const weekMinutes = Math.round(
+    state.sessions
+      .filter((session) => session.endedAt && onDay(session.startedAt) >= weekStart)
+      .reduce((sum, session) => sum + session.plannedSeconds, 0) / 60,
+  );
   const body = (
-    <div>
-      <p className="meta">{label}</p>
+    <div className="focus-stage">
       <div className="focus-clock">{clock}</div>
-      <div className="row">
-        <button className="primary" onClick={() => store.startFocus("pomodoro-work", state.settings.pomodoroWork * 60, null)}>开始番茄</button>
-        <button className="ghost" onClick={() => store.startFocus("pomodoro-break", state.settings.pomodoroBreak * 60, null)}>休息</button>
+      <p className="focus-task">{caption}</p>
+      <div className="row focus-actions">
+        <button className="primary" onClick={() => store.startFocus("pomodoro-work", state.settings.pomodoroWork * 60, null)}>开始</button>
+        <button className="ghost" onClick={() => store.startFocus("pomodoro-break", state.settings.pomodoroBreak * 60, null)}>休息 {state.settings.pomodoroBreak} 分钟</button>
+        <button className="ghost" onClick={() => store.stopFocus()}>跳过</button>
+      </div>
+      <div className="row focus-actions">
         <button className="ghost" onClick={() => store.startFocus("stopwatch", 0, null)}>正计时</button>
-        <button className="ghost" onClick={() => store.stopFocus()}>停止</button>
         <button className="ghost" onClick={() => setFull(true)}>全屏</button>
       </div>
-      <div className="bars" style={{ marginTop: 24 }}>
-        {days.map((day) => {
-          const key = ymdString(day);
-          const minutes = state.sessions.filter((session) => session.startedAt.slice(0, 10) === key && session.endedAt).reduce((sum, session) => sum + session.plannedSeconds, 0) / 60;
-          return <i key={key} title={key} style={{ height: Math.max(8, Math.min(120, minutes)) }} />;
+      <section className="focus-log">
+        <h2>今天的番茄</h2>
+        {todaySessions.length === 0 && <p className="meta">今天还没有番茄。开始一段 {state.settings.pomodoroWork} 分钟的专注。</p>}
+        {todaySessions.map((session) => {
+          const title = state.tasks.find((task) => task.id === session.taskId)?.title ?? "番茄钟";
+          const minutes = Math.max(1, Math.round(session.plannedSeconds / 60));
+          return <p key={session.id}>{title} · {minutes} 分钟{session.endedAt && <span className="done-label"> · 已完成</span>}</p>;
         })}
-      </div>
+        <p className="meta">本周 {weekMinutes} 分钟</p>
+      </section>
     </div>
   );
   if (full) return <div className="fullscreen"><div>{body}<button className="ghost" onClick={() => setFull(false)}>退出全屏</button></div></div>;
@@ -203,7 +218,7 @@ export function FocusView({ state }: { state: AppState }) {
 }
 
 export function CoursesView({ state }: { state: AppState }) {
-  const [draft, setDraft] = useState<Course>({ id: uid(), name: "", teacher: "", room: "", weekday: 0, startSlot: 1, endSlot: 1, color: "#0f6e6e" });
+  const [draft, setDraft] = useState<Course>({ id: uid(), name: "", teacher: "", room: "", weekday: 0, startSlot: 1, endSlot: 1, color: "#1f6b4a" });
   return (
     <div>
       <form className="fields" onSubmit={(event) => { event.preventDefault(); if (!draft.name.trim()) return; store.saveCourse(draft); setDraft({ ...draft, id: uid(), name: "" }); }}>
