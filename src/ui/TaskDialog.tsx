@@ -72,7 +72,7 @@ export function TaskDialog({
         }}
       >
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <h2 style={{ fontFamily: "var(--serif)", margin: 0 }}>{existing ? "编辑任务" : "新任务"}</h2>
+          <h2>{existing ? "编辑任务" : "新任务"}</h2>
           <button type="button" className="ghost" onClick={onClose}>关闭</button>
         </div>
         <div className="fields" style={{ marginTop: 12 }}>

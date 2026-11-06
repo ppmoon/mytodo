@@ -141,6 +141,8 @@ function taskFrom(row: Record<string, SqlValue>): Task {
 export function loadBundle() {
   const settingsRow = Object.fromEntries(rows("SELECT key, value FROM settings").map((row) => [String(row.key), String(row.value)]));
   const settings: Settings = { ...defaultSettings(), ...(settingsRow.settings ? (JSON.parse(settingsRow.settings) as Settings) : {}) };
+  if (settings.accent.toLowerCase() === "#0f6e6e") settings.accent = "#1f6b4a";
+  if (settings.tabs.join() === "today,calendar,habits,focus,more") settings.tabs = defaultSettings().tabs;
   return {
     settings,
     folders: rows("SELECT * FROM folders ORDER BY sort_order").map((row) => ({
@@ -305,7 +307,7 @@ function seed(): void {
   run("INSERT INTO projects (id, name, color, sort_order, created_at) VALUES (?, ?, ?, ?, ?)", [
     "inbox",
     "收集箱",
-    "#0f6e6e",
+    "#1f6b4a",
     0,
     created,
   ]);
