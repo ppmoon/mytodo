@@ -32,7 +32,7 @@ export function TaskDialog({
   const attachments = state.attachments.filter((item) => item.taskId === task.id);
   const preview = useMemo(() => attachments.map((file) => ({ ...file, url: store.attachmentUrl(file.id) })), [attachments]);
 
-  useEffect(() => () => preview.forEach((file) => file.url && URL.revokeObjectURL(file.url)), [preview]);
+  useEffect(() => () => preview.forEach((file) => file.url?.startsWith("blob:") && URL.revokeObjectURL(file.url)), [preview]);
 
   function patch(partial: Partial<Task>) {
     setTask((current) => ({ ...current, ...partial }));

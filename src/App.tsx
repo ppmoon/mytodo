@@ -80,7 +80,7 @@ export function App() {
       <aside className={menu ? "side open" : "side"}>
         <div className="side-scroll">
         <h1 className="brand">mytodo</h1>
-        <p className="lede">只存在这台浏览器里</p>
+        <p className="lede">存在 Cloudflare 的 D1 里</p>
         {GROUPS.map((group) => (
           <div key={group.label}>
             <div className="group">{group.label}</div>
