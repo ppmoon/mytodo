@@ -16,7 +16,7 @@ function Boot() {
     });
   }, []);
   if (error) return <p className="empty">数据库没有打开：{error}</p>;
-  if (!ready) return <p className="empty">正在打开本地数据库…</p>;
+  if (!ready) return <p className="empty">正在打开 D1 数据库…</p>;
   return (
     <BrowserRouter>
       <App />

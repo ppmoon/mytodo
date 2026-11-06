@@ -377,20 +377,20 @@ export function SettingsView({ state }: { state: AppState }) {
       </div>
       <button className="ghost" onClick={() => Notification.requestPermission()}>允许提醒通知</button>
       <button className="ghost" onClick={async () => {
-        const bytes = await store.exportFile();
-        const blob = new Blob([bytes as BlobPart], { type: "application/octet-stream" });
+        const text = await store.exportFile();
+        const blob = new Blob([text], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "mytodo.sqlite";
+        link.download = "mytodo.json";
         link.click();
         URL.revokeObjectURL(url);
-      }}>导出 SQLite</button>
-      <label className="ghost">导入 SQLite<input type="file" onChange={async (event) => {
+      }}>导出数据</button>
+      <label className="ghost">导入数据<input type="file" accept="application/json,.json" onChange={async (event) => {
         const file = event.target.files?.[0];
-        if (file) await store.importFile(new Uint8Array(await file.arrayBuffer()));
+        if (file) await store.importFile(JSON.parse(await file.text()));
       }} /></label>
-      <p className="meta">数据只在这台浏览器里。账号、协作和会员没有做。节假日列出的是节日当天，调休以当年公布为准。</p>
+      <p className="meta">待办存在 Cloudflare D1。这个网站没有账号，打开它的人看到同一份数据。节假日列出的是节日当天，调休以当年公布为准。</p>
     </div>
   );
 }
