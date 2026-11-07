@@ -1,6 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { logoutAccount } from "./auth";
 import { todayYmd, ymdString } from "./lib/dates";
+import { inboxProjectId } from "./lib/inbox";
 import { parseQuickAdd } from "./lib/nlp";
 import { store } from "./store";
 import { TaskList } from "./ui/TaskList";
@@ -80,7 +82,14 @@ export function App() {
       <aside className={menu ? "side open" : "side"}>
         <div className="side-scroll">
         <h1 className="brand">mytodo</h1>
-        <p className="lede">存在 Cloudflare 的 D1 里</p>
+        <p className="lede">只属于当前账号</p>
+        {state.user && (
+          <div className="account">
+            <strong>{state.user.name}</strong>
+            <span>{state.user.email}</span>
+            <button className="ghost" type="button" onClick={() => void logoutAccount()}>退出</button>
+          </div>
+        )}
         {GROUPS.map((group) => (
           <div key={group.label}>
             <div className="group">{group.label}</div>
@@ -115,7 +124,7 @@ export function App() {
           </div>
           <div className="row">
             <button className="ghost menu-btn" onClick={() => setMenu(true)}>菜单</button>
-            <button className="primary" onClick={() => setEditor({ id: null, projectId: pathname.startsWith("/project/") ? pathname.split("/")[2] : "inbox" })}>新任务</button>
+            <button className="primary" onClick={() => setEditor({ id: null, projectId: pathname.startsWith("/project/") ? pathname.split("/")[2] : (state.user ? inboxProjectId(state.user.id) : "inbox") })}>新任务</button>
           </div>
         </header>
         <QuickAdd timezone={state.settings.timezone} />

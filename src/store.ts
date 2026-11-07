@@ -3,9 +3,11 @@ import type { Bundle } from "./db/database";
 import { advanceDue, parseQuickAdd } from "./lib/nlp";
 import { addDays, dueYmd, todayYmd, ymdString } from "./lib/dates";
 import { distanceMeters } from "./lib/ics";
+import { inboxProjectId } from "./lib/inbox";
 import { nowIso, uid } from "./lib/id";
 import {
   defaultSettings,
+  type AuthUser,
   type ChecklistItem,
   type Comment,
   type Course,
@@ -27,6 +29,7 @@ export type AppState = Bundle & {
   bootError: string | null;
   undoLabel: string | null;
   notice: Notice | null;
+  user: AuthUser | null;
 };
 
 const emptyBundle = (): Bundle => ({
@@ -57,7 +60,12 @@ const emptyBundle = (): Bundle => ({
   completions: [],
 });
 
-let state: AppState = { ...emptyBundle(), ready: false, bootError: null, undoLabel: null, notice: null };
+let state: AppState = { ...emptyBundle(), ready: false, bootError: null, undoLabel: null, notice: null, user: null };
+let currentUser: AuthUser | null = null;
+
+function currentInboxId(): string {
+  return currentUser ? inboxProjectId(currentUser.id) : "inbox";
+}
 const listeners = new Set<() => void>();
 const undoStack: { label: string; run: () => Promise<void> }[] = [];
 let pending = Promise.resolve();
@@ -75,6 +83,7 @@ async function refresh(patch: Partial<AppState> = {}): Promise<void> {
     undoLabel: undoStack[0]?.label ?? null,
     notice: state.notice,
     ...patch,
+    user: currentUser,
   };
   emit();
 }
@@ -109,6 +118,17 @@ export const store = {
   getState() {
     return state;
   },
+  setUser(user: AuthUser) {
+    currentUser = user;
+    state = { ...state, user };
+    emit();
+  },
+  reset() {
+    currentUser = null;
+    undoStack.splice(0);
+    state = { ...emptyBundle(), ready: false, bootError: null, undoLabel: null, notice: null, user: null };
+    emit();
+  },
   async init() {
     try {
       await refresh({ ready: true, bootError: null });
@@ -140,13 +160,14 @@ export const store = {
     const parsed = parseQuickAdd(text, new Date(), state.settings.timezone);
     if (!parsed.title) return null;
     const taskId = uid();
+    const project = projectId ?? currentInboxId();
     void enqueue(async () => {
       const tagIds: string[] = [];
       for (const name of parsed.tags) tagIds.push(await db.ensureTag(name, "#c2410c"));
       const stamp = nowIso();
       const task: Task = {
         id: taskId,
-        projectId: projectId ?? "inbox",
+        projectId: project,
         columnId: null,
         parentId: null,
         title: parsed.title,
@@ -163,7 +184,7 @@ export const store = {
         pinnedAt: null,
         completedAt: null,
         deletedAt: null,
-        sortOrder: await db.nextSort(projectId ?? "inbox"),
+        sortOrder: await db.nextSort(project),
         locationName: null,
         locationLat: null,
         locationLng: null,
@@ -587,7 +608,7 @@ export const store = {
   },
 };
 
-export function blankTask(projectId: string | null = "inbox"): Task {
+export function blankTask(projectId: string | null = currentInboxId()): Task {
   const stamp = nowIso();
   return {
     id: uid(),

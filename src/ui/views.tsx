@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { addDays, dueYmd, formatClock, todayYmd, ymdInZone, ymdString, type Ymd } from "../lib/dates";
 import { holidayOn } from "../lib/holidays";
 import { lunarLabel } from "../lib/lunar";
+import { changePassword, logoutAccount } from "../auth";
 import { store, type AppState } from "../store";
 import { HABIT_PRESETS, type Course, type Habit } from "../types";
 import { uid } from "../lib/id";
@@ -329,8 +330,33 @@ export function SearchView({ state }: { state: AppState }) {
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、备注" />
       </form>
       <div className="chips">{state.searchHistory.map((item) => <button key={item.id} className="chip" onClick={() => setQuery(item.query)}>{item.query}</button>)}</div>
-      {results.map((task) => <p key={task.id}><button className="linkish" onClick={() => navigate(`/project/${task.projectId ?? "inbox"}`)}>{task.title}</button></p>)}
+      {results.map((task) => <p key={task.id}><button className="linkish" onClick={() => navigate(task.projectId ? `/project/${task.projectId}` : "/inbox")}>{task.title}</button></p>)}
     </div>
+  );
+}
+
+function PasswordForm() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [message, setMessage] = useState("");
+  return (
+    <form className="field wide" onSubmit={(event) => {
+      event.preventDefault();
+      setMessage("");
+      void changePassword(current, next).then(() => {
+        setCurrent("");
+        setNext("");
+        setMessage("密码已更新");
+      }).catch((reason: unknown) => {
+        setMessage(reason instanceof Error ? reason.message : "没有改成");
+      });
+    }}>
+      <span>修改密码</span>
+      <input type="password" autoComplete="current-password" placeholder="当前密码" value={current} onChange={(event) => setCurrent(event.target.value)} />
+      <input type="password" autoComplete="new-password" placeholder="新密码" value={next} onChange={(event) => setNext(event.target.value)} />
+      <button className="ghost" type="submit">更新密码</button>
+      {message && <span className="meta">{message}</span>}
+    </form>
   );
 }
 
@@ -339,6 +365,15 @@ export function SettingsView({ state }: { state: AppState }) {
   const tabs = ["today", "calendar", "matrix", "habits", "focus", "widgets", "more"];
   return (
     <div className="fields">
+      {state.user && (
+        <div className="field wide">
+          <span>账号</span>
+          <strong>{state.user.name}</strong>
+          <span className="meta">{state.user.email}</span>
+          <button className="ghost" type="button" onClick={() => void logoutAccount()}>退出登录</button>
+        </div>
+      )}
+      <PasswordForm />
       <label className="field">外观
         <select value={settings.theme} onChange={(event) => store.updateSettings({ theme: event.target.value as "light" | "dark" })}>
           <option value="light">纸色</option><option value="dark">夜色</option>
@@ -390,7 +425,7 @@ export function SettingsView({ state }: { state: AppState }) {
         const file = event.target.files?.[0];
         if (file) await store.importFile(JSON.parse(await file.text()));
       }} /></label>
-      <p className="meta">待办存在 Cloudflare D1。这个网站没有账号，打开它的人看到同一份数据。节假日列出的是节日当天，调休以当年公布为准。</p>
+      <p className="meta">待办存在 Cloudflare D1，并且只属于当前登录的账号。第一个注册的账号会接手上一次没有账号时留下的数据。节假日列出的是节日当天，调休以当年公布为准。</p>
     </div>
   );
 }

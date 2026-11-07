@@ -1,4 +1,5 @@
 import { compareYmd, dueYmd, todayYmd, ymdString } from "./lib/dates";
+import { inboxProjectId } from "./lib/inbox";
 import type { RepeatRule } from "./lib/nlp";
 import type { AppState } from "./store";
 import type { FilterQuery, Task } from "./types";
@@ -45,7 +46,10 @@ export function tasksFor(state: AppState, mode: ListMode, now = new Date()): Tas
   })() });
   let tasks = state.tasks.filter((task) => (mode.kind === "trash" ? task.deletedAt : !task.deletedAt));
   if (mode.kind !== "trash" && mode.kind !== "completed") tasks = tasks.filter((task) => !task.parentId);
-  if (mode.kind === "inbox") tasks = tasks.filter((task) => task.projectId === "inbox" && task.status === "open");
+  if (mode.kind === "inbox") {
+    const inbox = state.user ? inboxProjectId(state.user.id) : "inbox";
+    tasks = tasks.filter((task) => task.projectId === inbox && task.status === "open");
+  }
   if (mode.kind === "today") {
     tasks = tasks.filter((task) => {
       const due = dueYmd(task.dueAt, task.allDay, task.timezone);

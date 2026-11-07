@@ -1,5 +1,7 @@
 import type { RepeatRule } from "./lib/nlp";
 
+export type AuthUser = { id: string; email: string; name: string };
+
 export type Settings = {
   theme: "light" | "dark";
   accent: string;
