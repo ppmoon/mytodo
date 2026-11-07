@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SqlRow } from "../src/db/bundle";
-import { loginAccount, registerAccount, userForToken } from "../src/worker/accounts";
+import { loginAccount, userForToken } from "../src/worker/accounts";
 import { ensureDatabase, execute, loadState, readRows, resetDatabaseCache, type D1Database, type D1Prepared, type D1Result } from "../src/worker/d1";
-import { HttpError } from "../src/worker/http";
+import { hashPassword } from "../src/worker/password";
+import worker from "../src/worker/index";
 
 class Statement implements D1Prepared {
   private params: unknown[] = [];
@@ -69,20 +70,39 @@ async function taskCount(db: D1Database, userId: string, title: string): Promise
   return rows.length;
 }
 
+async function provision(db: D1Database, email: string, name: string, password: string) {
+  await db.prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)").bind(
+    crypto.randomUUID(),
+    email,
+    name,
+    await hashPassword(password),
+    new Date().toISOString(),
+  ).run();
+  return loginAccount(db, { email, password });
+}
+
 describe("accounts", () => {
   beforeEach(() => resetDatabaseCache());
 
-  it("gives a new account an empty inbox", async () => {
+  it("gives an existing account an empty inbox and refuses new signups", async () => {
     const db = openDb();
     await ensureDatabase(db);
-    const first = await registerAccount(db, { email: "ada@example.com", name: "阿达", password: "long-enough" });
+    const first = await provision(db, "ada@example.com", "阿达", "long-enough");
     const state = await loadState(db, first.user.id);
     expect(state.projects.map((project) => project.id)).toEqual([`inbox:${first.user.id}`]);
     expect(state.tasks).toEqual([]);
     expect(state.periods).toHaveLength(8);
     expect(await userForToken(db, first.token)).toEqual(first.user);
     await expect(loginAccount(db, { email: "ada@example.com", password: "nope" })).rejects.toThrow("邮箱或密码不正确");
-    await expect(registerAccount(db, { email: "Ada@Example.com", name: "另一个", password: "long-enough" })).rejects.toThrow(HttpError);
+    const refused = await worker.fetch(new Request("https://mytodo.test/api/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "new@example.com", name: "新人", password: "long-enough" }),
+    }), { DB: db });
+    expect(refused.status).toBe(403);
+    expect(await refused.text()).toBe("暂不开放注册");
+    const count = await db.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
+    expect(Number(count?.n)).toBe(1);
   });
 
   it("keeps a second account from seeing tasks, including rows left before login existed", async () => {
@@ -93,13 +113,13 @@ describe("accounts", () => {
     await db.prepare("INSERT INTO settings (key, value) VALUES ('settings', ?)").bind(JSON.stringify({ theme: "dark" })).run();
     await ensureDatabase(db);
 
-    const first = await registerAccount(db, { email: "ada@example.com", name: "阿达", password: "long-enough" });
+    const first = await provision(db, "ada@example.com", "阿达", "long-enough");
     const inherited = await loadState(db, first.user.id);
     expect(inherited.tasks.map((task) => task.title)).toEqual(["旧任务"]);
     expect(inherited.projects[0]?.id).toBe(`inbox:${first.user.id}`);
     expect(inherited.settings.theme).toBe("dark");
 
-    const second = await registerAccount(db, { email: "bao@example.com", name: "阿宝", password: "another-secret" });
+    const second = await provision(db, "bao@example.com", "阿宝", "another-secret");
     const own = await loadState(db, second.user.id);
     expect(own.tasks).toEqual([]);
     expect(own.projects[0]?.id).toBe(`inbox:${second.user.id}`);

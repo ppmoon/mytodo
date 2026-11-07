@@ -1,5 +1,5 @@
 import type { D1Database } from "./d1";
-import { parseLogin, parsePasswordChange, parseRegister } from "./account";
+import { parseLogin, parsePasswordChange } from "./account";
 import { HttpError } from "./http";
 import { hashPassword, randomHex, sha256Hex, verifyPassword } from "./password";
 
@@ -31,21 +31,6 @@ async function createSession(db: D1Database, userId: string): Promise<string> {
     new Date().toISOString(),
   ).run();
   return token;
-}
-
-export async function registerAccount(db: D1Database, input: unknown): Promise<{ user: PublicUser; token: string }> {
-  const parsed = parseRegister(input);
-  const existing = await db.prepare("SELECT id FROM users WHERE email = ?").bind(parsed.email).first<{ id: string }>();
-  if (existing) throw new HttpError("这个邮箱已经注册");
-  const user = { id: crypto.randomUUID(), email: parsed.email, name: parsed.name };
-  await db.prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)").bind(
-    user.id,
-    user.email,
-    user.name,
-    await hashPassword(parsed.password),
-    new Date().toISOString(),
-  ).run();
-  return { user, token: await createSession(db, user.id) };
 }
 
 export async function loginAccount(db: D1Database, input: unknown): Promise<{ user: PublicUser; token: string }> {

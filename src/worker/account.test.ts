@@ -1,19 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { parseLogin, parseRegister } from "./account";
+import { parseLogin, parsePasswordChange } from "./account";
 import { HttpError, readCookie, sessionCookie } from "./http";
 
 describe("account input", () => {
-  it("normalizes a registration", () => {
-    expect(parseRegister({ email: " Ada@Example.com ", name: " 阿达 ", password: "long-enough" })).toEqual({
+  it("normalizes the login email", () => {
+    expect(parseLogin({ email: " Ada@Example.com ", password: "long-enough" })).toEqual({
       email: "ada@example.com",
-      name: "阿达",
       password: "long-enough",
     });
   });
 
-  it("rejects a short password and a bad email", () => {
-    expect(() => parseRegister({ email: "ada@example.com", name: "阿达", password: "short" })).toThrow(HttpError);
+  it("rejects a bad email and a short new password", () => {
     expect(() => parseLogin({ email: "not-an-email", password: "long-enough" })).toThrow("请填写邮箱和密码");
+    expect(() => parsePasswordChange({ currentPassword: "long-enough", nextPassword: "short" })).toThrow(HttpError);
   });
 });
 

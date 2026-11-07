@@ -425,7 +425,7 @@ export function SettingsView({ state }: { state: AppState }) {
         const file = event.target.files?.[0];
         if (file) await store.importFile(JSON.parse(await file.text()));
       }} /></label>
-      <p className="meta">待办存在 Cloudflare D1，并且只属于当前登录的账号。第一个注册的账号会接手上一次没有账号时留下的数据。节假日列出的是节日当天，调休以当年公布为准。</p>
+      <p className="meta">待办存在 Cloudflare D1，并且只属于当前登录的账号。不开放注册。节假日列出的是节日当天，调休以当年公布为准。</p>
     </div>
   );
 }

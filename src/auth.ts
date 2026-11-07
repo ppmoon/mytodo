@@ -32,11 +32,6 @@ export async function currentUser(): Promise<AuthUser | null> {
   return body.user;
 }
 
-export async function registerAccount(input: { email: string; name: string; password: string }): Promise<AuthUser> {
-  const body = await postJson<{ user: AuthUser }>("/api/register", input);
-  return body.user;
-}
-
 export async function loginAccount(input: { email: string; password: string }): Promise<AuthUser> {
   const body = await postJson<{ user: AuthUser }>("/api/login", input);
   return body.user;

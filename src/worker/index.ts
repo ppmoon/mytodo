@@ -1,4 +1,4 @@
-import { changeAccountPassword, loginAccount, logoutAccount, registerAccount, userForToken } from "./accounts";
+import { changeAccountPassword, loginAccount, logoutAccount, userForToken } from "./accounts";
 import { ensureDatabase, execute, exportTables, importTables, loadState, readAttachment, readRows, saveAttachment, type Env } from "./d1";
 import { HttpError, clearSessionCookie, isSecureRequest, readCookie, sessionCookie, SESSION_COOKIE } from "./http";
 
@@ -26,8 +26,7 @@ export default {
     try {
       await ensureDatabase(env.DB);
       if (request.method === "POST" && url.pathname === "/api/register") {
-        const result = await registerAccount(env.DB, await readJson(request));
-        return json({ user: result.user }, 200, { "set-cookie": sessionCookie(result.token, secure) });
+        throw new HttpError("暂不开放注册", 403);
       }
       if (request.method === "POST" && url.pathname === "/api/login") {
         const result = await loginAccount(env.DB, await readJson(request));

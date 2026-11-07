@@ -143,8 +143,6 @@ h2 { font-size: 15px; font-weight: 560; margin: 0 0 10px; }
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
 }
 .auth-card h1 { font-size: 28px; }
-.auth-switch { display: flex; gap: 8px; }
-.chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 .auth-error { margin: 0; color: var(--high); font-size: 13px; }
 .auth-card .primary { justify-self: start; }
 .watch { max-width: 420px; margin: 0 auto; }
