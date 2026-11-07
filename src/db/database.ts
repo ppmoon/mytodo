@@ -1,3 +1,4 @@
+import { leaveSession } from "../auth";
 import type { ChecklistItem, Comment, Reminder, Settings, Task } from "../types";
 import type { Bundle } from "./bundle";
 import { nowIso, uid } from "../lib/id";
@@ -12,6 +13,10 @@ function normalize(params: unknown[]): unknown[] {
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
+  if (response.status === 401) {
+    leaveSession();
+    throw new Error("请先登录");
+  }
   if (!response.ok) throw new Error((await response.text()) || "数据库请求失败");
   return response.json() as Promise<T>;
 }
@@ -43,7 +48,7 @@ export async function loadBundle(): Promise<Bundle> {
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
-  await run("INSERT INTO settings (key, value) VALUES ('settings', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [
+  await run("INSERT INTO settings (key, value) VALUES ('settings', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value", [
     JSON.stringify(settings),
   ]);
 }

@@ -122,6 +122,7 @@ h2 { font-size: 15px; font-weight: 560; margin: 0 0 10px; }
 .dialog { width: min(720px, 100%); max-height: min(88vh, 900px); overflow: auto; padding: 18px; }
 .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .field { display: grid; gap: 6px; font-size: 13px; }
+.field button { justify-self: start; }
 .field.wide { grid-column: 1 / -1; }
 .toast { position: fixed; right: 16px; bottom: 16px; padding: 12px 14px; z-index: 40; display: flex; gap: 8px; align-items: center; }
 .toast.stacked { bottom: 84px; }
@@ -132,6 +133,18 @@ h2 { font-size: 15px; font-weight: 560; margin: 0 0 10px; }
 .widgets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .widget { padding: 14px; }
 .empty { color: var(--muted); padding: 28px 8px; }
+.account { margin: 4px 10px 12px; display: grid; gap: 2px; }
+.account strong { font-size: 14px; font-weight: 560; }
+.account span { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account .ghost { justify-self: start; margin-top: 8px; }
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-card {
+  width: min(420px, 100%); display: grid; gap: 12px; padding: 28px 24px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+}
+.auth-card h1 { font-size: 28px; }
+.auth-error { margin: 0; color: var(--high); font-size: 13px; }
+.auth-card .primary { justify-self: start; }
 .watch { max-width: 420px; margin: 0 auto; }
 .watch .task h3 { font-size: 28px; }
 .bars { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
